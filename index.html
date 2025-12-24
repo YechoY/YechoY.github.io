@@ -2,28 +2,33 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hologram OS - V17 Pure Interaction</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hologram OS - Universal V18</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000000; font-family: 'Segoe UI', Roboto, sans-serif; }
+        /* 基础重置 - 消除点击高亮 */
+        body { margin: 0; overflow: hidden; background-color: #000000; font-family: 'Segoe UI', Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
         canvas { display: block; outline: none; cursor: crosshair; }
         #input-video { position: absolute; opacity: 0; pointer-events: none; z-index: -1; }
 
+        /* --- UI 按钮 --- */
         #menu-toggle {
             position: absolute; top: 30px; right: 30px;
             width: 50px; height: 50px;
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px); /* iOS 兼容 */
             border-radius: 50%;
             border: 1px solid rgba(255,255,255,0.2);
             display: flex; justify-content: center; align-items: center;
-            cursor: pointer; z-index: 100;
+            cursor: pointer; z-index: 1000; /* 保证在最上层 */
             transition: 0.4s;
             box-shadow: 0 0 30px rgba(0,255,255,0.2);
         }
-        #menu-toggle:hover { background: rgba(255, 255, 255, 0.25); transform: rotate(90deg); }
+        #menu-toggle:active { transform: scale(0.9); }
+        #menu-toggle:hover { background: rgba(255, 255, 255, 0.25); }
         #menu-toggle svg { width: 22px; height: 22px; fill: white; }
 
+        /* --- 侧边栏 (PC默认) --- */
         #sidebar {
             position: absolute; top: 0; right: 0;
             width: 340px; height: 100vh;
@@ -33,13 +38,29 @@
             border-left: 1px solid rgba(255, 255, 255, 0.08);
             transform: translateX(100%);
             transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
-            z-index: 90;
+            z-index: 900;
             padding: 90px 35px 40px 35px;
             box-sizing: border-box;
             box-shadow: -40px 0 100px rgba(0,0,0,0.9);
             display: flex; flex-direction: column; gap: 25px;
+            overflow-y: auto; /* 防止小屏内容溢出 */
         }
         #sidebar.open { transform: translateX(0); }
+
+        /* --- 移动端适配 (Media Query) --- */
+        @media (max-width: 768px) {
+            #sidebar {
+                width: 100%; /* 手机全屏宽 */
+                padding: 80px 25px 30px 25px;
+                background: rgba(5, 8, 12, 0.98); /* 手机背景更实一点，防干扰 */
+            }
+            #menu-toggle {
+                top: 20px; right: 20px;
+            }
+            h2 { font-size: 16px; margin-bottom: 20px; }
+            .model-grid { gap: 10px; }
+            .model-btn { padding: 16px; font-size: 14px; }
+        }
 
         h2 { 
             margin: 0; font-size: 13px; color: #00ffff; letter-spacing: 6px; 
@@ -106,7 +127,7 @@
         .dot.on { background: #00ffff; box-shadow: 0 0 10px #00ffff; }
 
         #loader {
-            position: fixed; inset: 0; background: #000; z-index: 200;
+            position: fixed; inset: 0; background: #000; z-index: 2000;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             color: #00ffff; transition: opacity 0.8s; pointer-events: none; font-size: 11px; letter-spacing: 4px;
         }
@@ -126,10 +147,10 @@
 </head>
 <body>
 
-    <div id="loader">SYSTEM INITIALIZING...</div>
-    <video id="input-video" playsinline></video>
+    <div id="loader">SYSTEM LOADING...</div>
+    <video id="input-video" playsinline webkit-playsinline></video>
 
-    <div id="menu-toggle" onclick="toggleSidebar()">
+    <div id="menu-toggle">
         <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
     </div>
 
@@ -138,14 +159,14 @@
         
         <div>
             <span class="group-label">NEURAL LINK</span>
-            <button id="btn-cam" class="neural-btn active" onclick="toggleCam()">
+            <button id="btn-cam" class="neural-btn active">
                 📷 视觉控制 (ON)
             </button>
         </div>
 
         <div>
             <span class="group-label">COLOR MATRIX</span>
-            <button id="btn-rainbow" class="neural-btn active" onclick="toggleRainbow()">
+            <button id="btn-rainbow" class="neural-btn active">
                 🌈 流光幻彩 (ON)
             </button>
             <div id="color-wrapper">
@@ -157,18 +178,18 @@
         <div>
             <span class="group-label">PROJECTION MODEL</span>
             <div class="model-grid">
-                <div class="model-btn active" onclick="setShape('tree')">🎄 梦幻塔松</div>
-                <div class="model-btn" onclick="setShape('heart')">❤ 晶体之心</div>
-                <div class="model-btn" onclick="setShape('galaxy')">🌀 广域银河</div>
-                <div class="model-btn" onclick="setShape('flower')">🌸 经典花朵</div>
-                <div class="model-btn" onclick="setShape('saturn')">🪐 流光土星</div>
-                <div class="model-btn" onclick="setShape('sphere')">🌐 力场球体</div>
+                <div class="model-btn active" data-shape="tree">🎄 锐利塔松</div>
+                <div class="model-btn" data-shape="heart">❤ 晶体之心</div>
+                <div class="model-btn" data-shape="galaxy">🌀 广域银河</div>
+                <div class="model-btn" data-shape="flower">🌸 经典花朵</div>
+                <div class="model-btn" data-shape="saturn">🪐 流光土星</div>
+                <div class="model-btn" data-shape="sphere">🌐 力场球体</div>
             </div>
         </div>
 
         <div class="status-bar">
             <div><span class="dot on" id="status-dot"></span> <span id="status-text">SYSTEM READY</span></div>
-            <div>KERNEL_V17.0</div>
+            <div>KERNEL_V18.0</div>
         </div>
     </div>
 
@@ -179,42 +200,67 @@
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
+        // --- 设备检测 ---
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
         let isSidebarOpen = false;
         let isCamActive = true;
         let isRainbowMode = true; 
         let currentShape = 'tree';
         let manualColor = new THREE.Color(0x00d2ff);
 
-        window.toggleSidebar = () => {
-            isSidebarOpen = !isSidebarOpen;
-            const s = document.getElementById('sidebar');
-            const t = document.getElementById('menu-toggle');
-            if(isSidebarOpen) {
-                s.classList.add('open');
-                t.innerHTML = `<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`;
-            } else {
-                s.classList.remove('open');
-                t.innerHTML = `<svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>`;
-            }
-        };
+        // --- 事件监听 (兼容触摸) ---
+        const btnToggle = document.getElementById('menu-toggle');
+        const sidebar = document.getElementById('sidebar');
 
-        window.toggleRainbow = () => {
+        btnToggle.addEventListener('click', (e) => {
+            e.stopPropagation(); // 防止点穿
+            isSidebarOpen = !isSidebarOpen;
+            if(isSidebarOpen) {
+                sidebar.classList.add('open');
+                btnToggle.innerHTML = `<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`;
+            } else {
+                sidebar.classList.remove('open');
+                btnToggle.innerHTML = `<svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>`;
+            }
+        });
+
+        // 按钮逻辑代理
+        document.getElementById('btn-cam').addEventListener('click', function() {
+            isCamActive = !isCamActive;
+            if(isCamActive) { this.classList.add('active'); this.innerText = "📷 视觉控制 (ON)"; }
+            else { this.classList.remove('active'); this.innerText = "🚫 视觉控制 (OFF)"; }
+        });
+
+        document.getElementById('btn-rainbow').addEventListener('click', function() {
             isRainbowMode = !isRainbowMode;
-            const btn = document.getElementById('btn-rainbow');
             const cw = document.getElementById('color-wrapper');
             if(isRainbowMode) {
-                btn.classList.add('active');
-                btn.innerText = "🌈 流光幻彩 (ON)";
+                this.classList.add('active'); this.innerText = "🌈 流光幻彩 (ON)";
                 cw.classList.remove('visible');
             } else {
-                btn.classList.remove('active');
-                btn.innerText = "💠 纯净模式 (OFF)";
+                this.classList.remove('active'); this.innerText = "💠 纯净模式 (OFF)";
                 cw.classList.add('visible');
             }
-        };
+        });
 
         document.getElementById('manual-color').addEventListener('input', (e) => {
             manualColor.set(e.target.value);
+        });
+
+        document.querySelectorAll('.model-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const shape = this.getAttribute('data-shape');
+                morphTo(shape);
+                document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                // 移动端点选后自动收起侧边栏，体验更好
+                if(isMobile) {
+                    isSidebarOpen = false;
+                    sidebar.classList.remove('open');
+                    btnToggle.innerHTML = `<svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>`;
+                }
+            });
         });
 
         // --- 1. 场景 ---
@@ -222,11 +268,13 @@
         scene.fog = new THREE.FogExp2(0x000000, 0.001);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 0, 50);
+        // 手机屏幕小，视角稍微拉远
+        camera.position.set(0, 0, isMobile ? 65 : 50);
 
         const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+        // 手机高分屏限制 DPR 以防卡顿
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 1.5));
         document.body.appendChild(renderer.domElement);
 
         const controls = new OrbitControls(camera, renderer.domElement);
@@ -236,7 +284,7 @@
         controls.rotateSpeed = 0.6;
         controls.autoRotate = false;
 
-        // --- 2. 后期 (V16 High Exposure) ---
+        // --- 2. 后期 (V16) ---
         const renderScene = new RenderPass(scene, camera);
         const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
         bloomPass.threshold = 0.15; 
@@ -247,8 +295,10 @@
         composer.addPass(renderScene);
         composer.addPass(bloomPass);
 
-        // --- 3. 粒子系统 (16万) ---
-        const particleCount = 160000;
+        // --- 3. 粒子系统 (性能自适应) ---
+        // 移动端降级到 7万粒子，保证 60fps
+        const particleCount = isMobile ? 70000 : 160000;
+        
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(particleCount * 3);
         const colors = new Float32Array(particleCount * 3);
@@ -285,7 +335,8 @@
         };
 
         const material = new THREE.PointsMaterial({
-            size: 0.18, 
+            // 手机上粒子稍微大一点点，弥补数量减少
+            size: isMobile ? 0.3 : 0.18, 
             map: getTexture(),
             vertexColors: true,
             transparent: true,
@@ -306,23 +357,18 @@
             targetColors[i*3+2] = tempColor.b;
         };
 
-        // --- 4. 形状算法 ---
+        // --- 4. 形状算法 (保留 V17 所有设定) ---
         const shapes = {
-            // 🎄 4层锐利塔松 (Fixed to 4 layers)
+            // 🎄 4层锐利塔松
             tree: (i) => {
                 const ratio = i / particleCount;
                 if (ratio < 0.85) { 
                     const h = 45; const y = -20 + Math.random() * h; const progress = (y + 20) / h;
-                    
-                    // *修正*：严格 4 层
-                    const layers = 4; 
+                    const layers = 4; // 严格4层
                     const layerProg = (progress * layers) % 1;
-                    
                     const globalCone = 1 - progress; 
                     const maxR = 16;
-                    // 锐利锯齿波
                     const r = maxR * globalCone * (1.2 - 0.9 * layerProg) * Math.sqrt(Math.random()); 
-                    
                     const angle = Math.random() * Math.PI * 2;
                     setTargetColor(i, 0.92 + progress * 0.12, 0.9, 0.8); 
                     return { x: Math.cos(angle)*r, y: y, z: Math.sin(angle)*r };
@@ -340,11 +386,8 @@
                     return { x, y, z };
                 }
             },
-
-            // ❤ 晶体爱心
             heart: (i) => {
-                let t = Math.random() * Math.PI * 2;
-                let u = Math.random() * Math.PI;
+                let t = Math.random() * Math.PI * 2, u = Math.random() * Math.PI;
                 const x = 16 * Math.pow(Math.sin(t), 3) * Math.sin(u);
                 const y = (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) * Math.sin(u);
                 const z = 6 * Math.cos(u);
@@ -352,15 +395,13 @@
                 setTargetColor(i, 0.98, 0.9, 0.7); 
                 return { x: x*scale, y: y*scale + 2, z: z*scale };
             },
-
-            // 🌀 广域银河
             galaxy: (i) => {
                 const arms = 2;
                 if(i < particleCount * 0.06) { 
                     const r = Math.pow(Math.random(), 2) * 9; 
-                    const theta = Math.random() * Math.PI * 2, phi = Math.acos(2*Math.random()-1);
+                    const t = Math.random()*Math.PI*2, p = Math.acos(2*Math.random()-1);
                     setTargetColor(i, 0.1, 0.8, 0.95);
-                    return { x: r*Math.sin(phi)*Math.cos(theta), y: r*Math.sin(phi)*Math.sin(theta)*0.5, z: r*Math.cos(phi)*0.5 };
+                    return { x: r*Math.sin(p)*Math.cos(t), y: r*Math.sin(p)*Math.sin(t)*0.5, z: r*Math.cos(p)*0.5 };
                 } else {
                     const angle = Math.random() * Math.PI * 2;
                     const dist = 10 + Math.random() * 70; 
@@ -373,24 +414,18 @@
                     return { x: Math.cos(theta)*dist + scatter, y: yScatter, z: Math.sin(theta)*dist + scatter };
                 }
             },
-
-            // 🌸 花朵
             flower: (i) => {
-                const u = Math.random() * Math.PI * 2;
-                const v = Math.random() * Math.PI;
+                const u = Math.random() * Math.PI * 2, v = Math.random() * Math.PI;
                 const r = 12 + 6 * Math.sin(5 * u) * Math.sin(4 * v);
                 setTargetColor(i, 0.8 + Math.random()*0.1, 0.9, 0.8);
                 return { x: r * Math.sin(v) * Math.cos(u), y: r * Math.sin(v) * Math.sin(u), z: r * Math.cos(v) };
             },
-
-            // 🪐 土星
             saturn: (i) => {
                 const tilt = 27 * Math.PI / 180;
                 const cosT = Math.cos(tilt), sinT = Math.sin(tilt);
                 let x, y, z;
                 if (i < particleCount * 0.3) {
-                    const r = 9;
-                    const t = Math.random() * Math.PI * 2, p = Math.acos(2*Math.random()-1);
+                    const r = 9, t = Math.random()*Math.PI*2, p = Math.acos(2*Math.random()-1);
                     setTargetColor(i, 0.11, 1.0, 0.8); 
                     const rx = r*Math.sin(p)*Math.cos(t), ry = r*Math.sin(p)*Math.sin(t)*0.9, rz = r*Math.cos(p);
                     x = rx*cosT - ry*sinT; y = rx*sinT + ry*cosT; z = rz;
@@ -404,18 +439,11 @@
                 }
                 return { x, y, z };
             },
-
-            // 🌐 球体
             sphere: (i) => {
-                const r = 26; 
-                const t = Math.random() * Math.PI * 2, p = Math.acos(2*Math.random()-1);
+                const r = 26, t = Math.random()*Math.PI*2, p = Math.acos(2*Math.random()-1);
                 const thickness = 1 + (Math.random()-0.5) * 0.015; 
                 setTargetColor(i, 0.55, 0.9, 0.8);
-                return { 
-                    x: r*Math.sin(p)*Math.cos(t) * thickness, 
-                    y: r*Math.sin(p)*Math.sin(t) * thickness, 
-                    z: r*Math.cos(p) * thickness 
-                };
+                return { x: r*Math.sin(p)*Math.cos(t)*thickness, y: r*Math.sin(p)*Math.sin(t)*thickness, z: r*Math.cos(p)*thickness };
             }
         };
 
@@ -431,20 +459,7 @@
         }
         morphTo('tree');
 
-        window.setShape = (name) => {
-            morphTo(name);
-            document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
-            event.currentTarget.classList.add('active');
-        };
-
-        window.toggleCam = () => {
-            isCamActive = !isCamActive;
-            const b = document.getElementById('btn-cam');
-            if(isCamActive) { b.classList.add('active'); b.innerText = "📷 视觉控制 (ON)"; }
-            else { b.classList.remove('active'); b.innerText = "🚫 视觉控制 (OFF)"; }
-        };
-
-        // --- 5. MediaPipe (Pure Scaling) ---
+        // --- 5. MediaPipe ---
         let hands;
         let isHandDetected = false;
         let targetHandScale = 1.0;
@@ -453,18 +468,16 @@
 
         async function initVision() {
             hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-            hands.setOptions({ maxNumHands: 1, modelComplexity: 0 });
+            hands.setOptions({ maxNumHands: 1, modelComplexity: 0 }); // 0 for speed
             hands.onResults(results => {
                 if(!isCamActive) return;
                 if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                     isHandDetected = true;
                     const lm = results.multiHandLandmarks[0];
                     const dist = Math.hypot(lm[4].x - lm[8].x, lm[4].y - lm[8].y);
-                    
                     // *仅缩放*
                     targetHandScale = 0.5 + dist * 5; 
-                    
-                    document.getElementById('status-text').innerText = "HAND DETECTED";
+                    document.getElementById('status-text').innerText = "HAND LINKED";
                     document.getElementById('status-text').style.color = "#00ffaa";
                 } else {
                     isHandDetected = false;
@@ -476,9 +489,11 @@
             const cameraObj = new Camera(video, {
                 onFrame: async () => { 
                     frameCount++;
-                    if(isCamActive && frameCount % 2 === 0) await hands.send({image: video}); 
+                    // 移动端节流检测，省电防卡
+                    if(isCamActive && frameCount % (isMobile ? 3 : 2) === 0) await hands.send({image: video}); 
                 },
-                width: 640, height: 480
+                width: isMobile ? 320 : 640, 
+                height: isMobile ? 240 : 480
             });
             await cameraObj.start();
             document.getElementById('loader').style.opacity = 0;
@@ -493,17 +508,20 @@
             const time = clock.getElapsedTime();
             controls.update();
 
+            // 智能尺寸
             const dist = camera.position.distanceTo(new THREE.Vector3(0,0,0));
-            material.size = Math.max(0.08, 0.18 * (dist / 50));
+            // 手机上基础粒子大一些
+            const baseSize = isMobile ? 0.25 : 0.18;
+            material.size = Math.max(0.08, baseSize * (dist / 50));
 
-            // 手势缩放插值
+            // 插值
             currentHandScale += (targetHandScale - currentHandScale) * 0.08;
             
-            // *固定旋转逻辑*：始终缓慢自转，不受手势平移干扰
+            // 自动慢旋
             particleSystem.scale.setScalar(currentHandScale);
             const autoSpeed = (currentShape === 'saturn') ? 0.0002 : 0.0008;
             particleSystem.rotation.y += autoSpeed;
-            // 慢慢复位X轴倾斜（如果有的话）
+            // 归位
             particleSystem.rotation.x += (0 - particleSystem.rotation.x) * 0.05;
 
             const pos = geometry.attributes.position.array;
