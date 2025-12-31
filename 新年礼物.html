@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>2026 新年快乐</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #020205; /* 极深宇宙黑 */
+            overflow: hidden;
+            font-family: "KaiTi", "STKaiti", "BiauKai", "Georgia", "Times New Roman", serif; /* CSS 后备字体 */
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let cw, ch;
+        let dpr = window.devicePixelRatio || 1;
+        let isMobile = false; 
+        let maxDim = 0;
+
+        function resizeCanvas() {
+            cw = window.innerWidth;
+            ch = window.innerHeight;
+            isMobile = cw < ch;
+            maxDim = Math.max(cw, ch);
+            dpr = window.devicePixelRatio || 1;
+
+            canvas.width = cw * dpr;
+            canvas.height = ch * dpr;
+            canvas.style.width = cw + "px";
+            canvas.style.height = ch + "px";
+            
+            ctx.scale(dpr, dpr);
+        }
+        resizeCanvas();
+
+        // ================= 配置区 =================
+        function getConfig() {
+            return {
+                textList: ["2026", "新年快乐", "辞暮尔尔", "烟火年年", "岁岁常欢愉", "年年皆胜意", "平安喜乐", "万事顺遂", "钱途无量", "星河璀璨", "未来可期"], 
+                
+                fireworkRate: isMobile ? 80 : 50, 
+                fireworkVol: isMobile ? 2 : 4,    
+
+                textStayTime: 3000,
+                textFadeTime: 1000,
+
+                saturnRadius: maxDim * 0.35,
+                ringRadiusInner: maxDim * 0.45,
+                ringRadiusOuter: maxDim * 1.8,
+                saturnParticleCount: isMobile ? 800 : 2000 
+            };
+        }
+
+        let CONFIG = getConfig();
+        let fireworks = [];      
+        let sparks = [];         
+        let saturnParticles = [];
+        let hue = 0;             
+        let timerTick = 0;
+
+        let textState = { index: 0, opacity: 0, phase: 'fade_in', timer: 0 };
+
+        // ================= 0. 背景 (银河土星) =================
+        class SaturnParticle {
+            constructor(type) {
+                this.type = type; 
+                this.reset();
+            }
+            reset() {
+                this.angle = Math.random() * Math.PI * 2;
+                if (this.type === 'ring') {
+                    this.radius = CONFIG.ringRadiusInner + Math.random() * (CONFIG.ringRadiusOuter - CONFIG.ringRadiusInner);
+                    this.speed = (100 / this.radius) * 0.005; 
+                } else {
+                    this.radius = Math.random() * CONFIG.saturnRadius;
+                    this.yOffset = (Math.random() - 0.5) * CONFIG.saturnRadius * 0.4;
+                    this.speed = 0.002; 
+                }
+                this.size = Math.random() * 1.8 + 0.5; 
+                this.alpha = Math.random() * 0.6 + 0.2; 
+            }
+            update() { this.angle += this.speed; }
+            draw() {
+                const tilt = 0.3; 
+                let x = Math.cos(this.angle) * this.radius;
+                let z = Math.sin(this.angle) * this.radius;
+                let y = z * tilt; 
+                if (this.type === 'body') {
+                    y += Math.sin(this.angle) * this.radius * tilt + this.yOffset;
+                    if (z < 0) this.alpha = 0.15; else this.alpha = 0.5;
+                }
+                let screenX = cw / 2 + x;
+                let screenY = ch / 2 + y;
+                let colorHue = this.type === 'ring' ? hue + this.radius * 0.1 : hue;
+                ctx.fillStyle = `hsla(${colorHue}, 60%, 40%, ${this.alpha})`;
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function initSaturn() {
+            saturnParticles = [];
+            for(let i=0; i < CONFIG.saturnParticleCount * 0.8; i++) { saturnParticles.push(new SaturnParticle('ring')); }
+            for(let i=0; i < CONFIG.saturnParticleCount * 0.2; i++) { saturnParticles.push(new SaturnParticle('body')); }
+        }
+
+        // ================= 1. 实心流光文字系统 (楷体版) =================
+        function drawText(opacity) {
+            const text = CONFIG.textList[textState.index];
+            
+            ctx.save();
+            ctx.globalAlpha = opacity;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // 字体发光
+            ctx.shadowBlur = 25; // 楷体笔画细，增加一点光晕让它更显眼
+            ctx.shadowColor = `hsla(${hue}, 80%, 60%, 0.8)`;
+
+            // 【核心修改】字体栈：优先楷体，其次衬线字体
+            const fontStack = '"KaiTi", "STKaiti", "BiauKai", "SimKai", "Adobe Kaiti Std", "Georgia", "Times New Roman", serif';
+
+            if (isMobile) {
+                // === 手机端：竖排 ===
+                let fontSize = cw * 0.35; 
+                if (text.length > 4) fontSize = cw * 0.28;
+                if (text.length > 7) fontSize = cw * 0.22;
+
+                // 使用 bold 加粗，让楷体更清晰
+                ctx.font = `bold ${fontSize}px ${fontStack}`;
+                
+                const lineHeight = fontSize * 1.15;
+                const totalHeight = text.length * lineHeight;
+                const startY = (ch - totalHeight) / 2 + lineHeight / 2;
+
+                // 纵向渐变
+                const gradient = ctx.createLinearGradient(0, startY - lineHeight, 0, startY + totalHeight);
+                gradient.addColorStop(0, `hsl(${hue}, 100%, 75%)`);
+                gradient.addColorStop(0.5, `hsl(${hue + 30}, 100%, 70%)`);
+                gradient.addColorStop(1, `hsl(${hue + 60}, 100%, 75%)`);
+                ctx.fillStyle = gradient;
+
+                for (let i = 0; i < text.length; i++) {
+                    ctx.fillText(text[i], cw / 2, startY + i * lineHeight);
+                }
+
+            } else {
+                // === 电脑端：横排 ===
+                let fontSize = cw * 0.2;
+                if (text.length > 4) fontSize = cw * 0.15;
+                if (text.length > 6) fontSize = cw * 0.12;
+
+                ctx.font = `bold ${fontSize}px ${fontStack}`;
+
+                // 横向渐变
+                const textWidth = ctx.measureText(text).width;
+                const gradient = ctx.createLinearGradient(cw/2 - textWidth/2, 0, cw/2 + textWidth/2, 0);
+                gradient.addColorStop(0, `hsl(${hue}, 100%, 75%)`);
+                gradient.addColorStop(0.5, `hsl(${hue + 40}, 100%, 70%)`);
+                gradient.addColorStop(1, `hsl(${hue + 80}, 100%, 75%)`);
+                ctx.fillStyle = gradient;
+
+                ctx.fillText(text, cw / 2, ch / 2);
+            }
+            
+            ctx.restore();
+        }
+
+        // ================= 2. 烟花系统 =================
+        class Firework {
+            constructor(targetX, targetY) {
+                this.x = Math.random() * cw; this.y = ch;
+                this.sx = this.x; this.sy = this.y;
+                this.tx = targetX || Math.random() * cw; 
+                this.ty = targetY || Math.random() * (ch * 0.4); 
+                this.distanceToTarget = Math.sqrt(Math.pow(this.tx - this.sx, 2) + Math.pow(this.ty - this.sy, 2));
+                this.distanceTraveled = 0;
+                this.coordinates = [];
+                this.coordinateCount = 3;
+                while(this.coordinateCount--) { this.coordinates.push([this.x, this.y]); }
+                this.angle = Math.atan2(this.ty - this.sy, this.tx - this.sx);
+                this.speed = 2;
+                this.acceleration = 1.05;
+                this.brightness = Math.random() * 40 + 60;
+            }
+            update(index) {
+                this.coordinates.pop();
+                this.coordinates.unshift([this.x, this.y]);
+                this.speed *= this.acceleration;
+                let vx = Math.cos(this.angle) * this.speed;
+                let vy = Math.sin(this.angle) * this.speed;
+                this.distanceTraveled = Math.sqrt(Math.pow(this.sx - (this.x + vx), 2) + Math.pow(this.sy - (this.y + vy), 2));
+                if (this.distanceTraveled >= this.distanceToTarget) {
+                    createSparks(this.tx, this.ty); fireworks.splice(index, 1);
+                } else { this.x += vx; this.y += vy; }
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.moveTo(this.coordinates[this.coordinates.length - 1][0], this.coordinates[this.coordinates.length - 1][1]);
+                ctx.lineTo(this.x, this.y);
+                ctx.strokeStyle = `hsl(${hue}, 100%, ${this.brightness}%)`; ctx.stroke();
+            }
+        }
+
+        class Spark {
+            constructor(x, y) {
+                this.x = x; this.y = y;
+                this.coordinates = [];
+                this.coordinateCount = 6;
+                while(this.coordinateCount--) { this.coordinates.push([this.x, this.y]); }
+                this.angle = Math.random() * Math.PI * 2;
+                this.speed = Math.random() * 12 + 1; 
+                this.friction = 0.95; this.gravity = 1.5;
+                this.hue = Math.random() * 30 + hue;
+                this.brightness = Math.random() * 50 + 50;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.01 + 0.005; 
+            }
+            update(index) {
+                this.coordinates.pop();
+                this.coordinates.unshift([this.x, this.y]);
+                this.speed *= this.friction;
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed + this.gravity;
+                this.alpha -= this.decay;
+                if (this.alpha <= this.decay) sparks.splice(index, 1);
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.moveTo(this.coordinates[this.coordinates.length - 1][0], this.coordinates[this.coordinates.length - 1][1]);
+                ctx.lineTo(this.x, this.y);
+                ctx.strokeStyle = `hsla(${this.hue}, 100%, ${this.brightness}%, ${this.alpha})`;
+                ctx.stroke();
+            }
+        }
+
+        function createSparks(x, y) {
+            let count = 80; while (count--) sparks.push(new Spark(x, y));
+        }
+
+        // ================= 3. 主循环 =================
+        function updateTextState() {
+            const dt = 16; 
+            if (textState.phase === 'fade_in') {
+                textState.opacity += dt / CONFIG.textFadeTime;
+                if (textState.opacity >= 1) {
+                    textState.opacity = 1;
+                    textState.phase = 'display';
+                    textState.timer = 0;
+                }
+            } else if (textState.phase === 'display') {
+                textState.timer += dt;
+                if (textState.timer >= CONFIG.textStayTime) {
+                    textState.phase = 'fade_out';
+                }
+            } else if (textState.phase === 'fade_out') {
+                textState.opacity -= dt / CONFIG.textFadeTime;
+                if (textState.opacity <= 0) {
+                    textState.opacity = 0;
+                    textState.index = (textState.index + 1) % CONFIG.textList.length;
+                    textState.phase = 'fade_in';
+                }
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)'; 
+            ctx.fillRect(0, 0, cw, ch);
+            
+            ctx.globalCompositeOperation = 'source-over'; 
+            saturnParticles.forEach(p => { p.update(); p.draw(); });
+
+            ctx.globalCompositeOperation = 'lighter'; 
+            let i = fireworks.length; while(i--) { fireworks[i].draw(); fireworks[i].update(i); }
+            let k = sparks.length; while(k--) { sparks[k].draw(); sparks[k].update(k); }
+
+            if (timerTick % CONFIG.fireworkRate === 0) {
+                let count = Math.floor(Math.random() * 3) + CONFIG.fireworkVol;
+                for(let n=0; n<count; n++) { fireworks.push(new Firework()); }
+            }
+
+            updateTextState();
+            
+            if (textState.opacity > 0) {
+                ctx.globalCompositeOperation = 'source-over'; 
+                drawText(textState.opacity);
+            }
+
+            hue += 0.5; timerTick++;
+        }
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            CONFIG = getConfig();
+            initSaturn();
+        });
+
+        function handleInteraction(x, y) {
+            for(let i=0; i<3; i++) {
+                let jitterX = x + (Math.random() - 0.5) * 50;
+                let jitterY = y + (Math.random() - 0.5) * 50;
+                fireworks.push(new Firework(jitterX, jitterY));
+            }
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            e.preventDefault(); handleInteraction(e.clientX, e.clientY);
+        });
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            for (let i = 0; i < e.touches.length; i++) {
+                handleInteraction(e.touches[i].clientX, e.touches[i].clientY);
+            }
+        });
+
+        initSaturn();
+        animate();
+
+    </script>
+</body>
+</html>
